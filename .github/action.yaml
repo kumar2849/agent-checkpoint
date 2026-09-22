@@ -1,0 +1,71 @@
+# Source-tree copy of the public Action contract. GitHub consumes /action.yml.
+name: Agent Checkpoint
+description: Run only tests affected by AI-authored changed lines
+inputs:
+  base-ref:
+    description: Base git revision
+    required: false
+    default: ""
+  head-ref:
+    description: Head git revision
+    required: false
+    default: HEAD
+  ai-marker:
+    description: Commit-message marker identifying an AI author
+    required: false
+    default: "Co-authored-by: <AI-agent>"
+  ai-commits:
+    description: Comma-separated allowlist of AI-authored commit SHAs
+    required: false
+    default: ""
+  threshold:
+    description: Minimum AI line ratio
+    required: false
+    default: "0.05"
+  coverage-json:
+    description: Coverage JSON with per-test contexts
+    required: false
+    default: coverage.json
+  run-static:
+    description: Run Ruff or ESLint on changed files
+    required: false
+    default: "false"
+  execute-tests:
+    description: Execute selected tests
+    required: false
+    default: "true"
+  full-suite-target:
+    description: Safe fallback pytest target
+    required: false
+    default: tests
+outputs:
+  tests-to-run:
+    description: JSON list of selected tests
+    value: ${{ steps.checkpoint.outputs.tests-to-run }}
+  ai-line-count:
+    description: Number of AI-authored changed lines
+    value: ${{ steps.checkpoint.outputs.ai-line-count }}
+  skipped:
+    description: Whether the threshold skipped execution
+    value: ${{ steps.checkpoint.outputs.skipped }}
+runs:
+  using: composite
+  steps:
+    - name: Install Agent Checkpoint
+      shell: bash
+      run: python -m pip install "${GITHUB_ACTION_PATH}[static]"
+    - name: Select and run impacted tests
+      id: checkpoint
+      shell: bash
+      env:
+        INPUT_BASE_REF: ${{ inputs.base-ref }}
+        INPUT_HEAD_REF: ${{ inputs.head-ref }}
+        INPUT_AI_MARKER: ${{ inputs.ai-marker }}
+        INPUT_AI_COMMITS: ${{ inputs.ai-commits }}
+        INPUT_THRESHOLD: ${{ inputs.threshold }}
+        INPUT_COVERAGE_JSON: ${{ inputs.coverage-json }}
+        INPUT_RUN_STATIC: ${{ inputs.run-static }}
+        INPUT_EXECUTE_TESTS: ${{ inputs.execute-tests }}
+        INPUT_FULL_SUITE_TARGET: ${{ inputs.full-suite-target }}
+        AGENT_CHECKPOINT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: python -m agent_checkpoint --repo-path "$GITHUB_WORKSPACE"
